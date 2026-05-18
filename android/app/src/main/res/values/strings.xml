@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DigiMall</string>
+    <string name="title_activity_main">DigiMall</string>
+    <string name="package_name">com.digimall.app</string>
+    <string name="custom_url_scheme">com.digimall.app</string>
+</resources>

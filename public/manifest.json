@@ -1,0 +1,36 @@
+{
+  "id": "com.digimall.app",
+  "name": "دیجی‌مال — بازار آفلاین",
+  "short_name": "دیجی‌مال",
+  "description": "بازار آنلاین فارسی با پشتیبانی آفلاین",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#fafafa",
+  "theme_color": "#e11d48",
+  "dir": "rtl",
+  "lang": "fa",
+  "categories": ["shopping"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

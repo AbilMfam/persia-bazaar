@@ -5,24 +5,16 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: |
-          unzip persia-bazaar-main-git.zip
-          cp -r persia-bazaar-main/. .
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Install dependencies
         run: npm install
@@ -33,24 +25,14 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Sync Capacitor
         run: npx cap sync android
-
-      - name: Fix Gradle repositories
-        run: |
-          find android -name "*.gradle" -exec sed -i 's|https://maven.aliyun.com/repository/central|https://repo1.maven.org/maven2|g' {} \;
-          find android -name "*.gradle" -exec sed -i 's|https://maven.aliyun.com/repository/google|https://maven.google.com|g' {} \;
-          find android -name "*.gradle" -exec sed -i 's|https://maven.aliyun.com/repository/public|https://repo1.maven.org/maven2|g' {} \;
-          find android -name "*.gradle" -exec sed -i 's|https://maven.aliyun.com/repository/jcenter|https://jcenter.bintray.com|g' {} \;
-
-      - name: Fix duplicate splash resource
-        run: rm android/app/src/main/res/drawable/splash.png
 
       - name: Build APK
         run: |
