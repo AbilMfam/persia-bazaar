@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { TopBar } from "@/components/TopBar";
 import { ProductCard } from "@/components/ProductCard";
 import { useProducts } from "@/hooks/useProducts";
-import { filterProducts } from "@/lib/search";
 import { z } from "zod";
 import { Search } from "lucide-react";
 
@@ -25,9 +24,11 @@ export const Route = createFileRoute("/search")({
 function SearchPage() {
   const { q } = Route.useSearch();
   const navigate = useNavigate();
-  const { products, ready } = useProducts();
   const trimmed = q.trim();
-  const results = filterProducts(products, trimmed);
+  const { products: results, ready } = useProducts({
+    q: trimmed || undefined,
+    skip: trimmed.length === 0,
+  });
 
   return (
     <div className="animate-fade-in pb-6">

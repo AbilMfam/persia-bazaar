@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { TopBar } from "@/components/TopBar";
 import { LazyImage } from "@/components/LazyImage";
 import { formatPrice } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
-import { useSellerProducts } from "@/hooks/useProducts";
-import { productStore } from "@/lib/products";
+import { useMyProducts } from "@/hooks/useProducts";
+import { auth, formatAuthError } from "@/lib/auth";
+import { deleteProduct } from "@/lib/product-api";
+import { productKeys } from "@/lib/product-query-keys";
 import { cart } from "@/lib/cart";
 import { TrendingUp, Package, Wallet, Eye, Plus, ArrowUpRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,10 +19,19 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-  const { user, isLoggedIn } = useAuth();
-  const myProducts = useSellerProducts(user?.id ?? null);
+  const queryClient = useQueryClient();
+  const { user, ready: authReady, isLoggedIn } = useAuth();
+  const { products: myProducts, ready: productsReady } = useMyProducts();
 
   const revenue = myProducts.reduce((s, p) => s + p.price, 0);
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
@@ -57,7 +69,11 @@ function DashboardPage() {
       <div className="-mt-6 grid grid-cols-2 gap-3 px-4">
         <Stat icon={Package} label="کالاهای من" value={myProducts.length.toLocaleString("fa-IR")} tone="primary" />
         <Stat icon={Eye} label="بازدید" value="—" />
-        <Stat icon={TrendingUp} label="دسته‌ها" value={new Set(myProducts.map((p) => p.category)).size.toLocaleString("fa-IR")} />
+        <Stat
+          icon={TrendingUp}
+          label="دسته‌ها"
+          value={new Set(myProducts.map((p) => p.category)).size.toLocaleString("fa-IR")}
+        />
         <Stat icon={Wallet} label="فروشنده" value={user?.name?.split(" ")[0] ?? "—"} />
       </div>
 
@@ -73,10 +89,12 @@ function DashboardPage() {
           </Link>
         </div>
 
-        {myProducts.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            هنوز کالایی ثبت نکرده‌اید
-          </p>
+        {!productsReady ? (
+          <div className="flex justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : myProducts.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">هنوز کالایی ثبت نکرده‌اید</p>
         ) : (
           <div className="space-y-2.5">
             {myProducts.map((p) => (
@@ -89,7 +107,7 @@ function DashboardPage() {
                   alt=""
                   wrapperClassName="h-14 w-14 shrink-0 rounded-xl"
                 />
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <h4 className="line-clamp-1 text-sm font-medium">{p.title}</h4>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     <span>{formatPrice(p.price)}</span>
@@ -99,19 +117,27 @@ function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Link
-                    to="/sell"
-                    search={{ edit: p.id }}
-                    className="text-xs font-bold text-primary"
-                  >
+                  <Link to="/sell" search={{ edit: p.id }} className="text-xs font-bold text-primary">
                     ویرایش
                   </Link>
                   <button
                     type="button"
                     onClick={() => {
-                      productStore.remove(p.id);
-                      cart.removeProductFromAll(p.id);
-                      toast.success("کالا حذف شد");
+                      void (async () => {
+                        const token = auth.getToken();
+                        if (!token) {
+                          toast.error("ابتدا وارد شوید");
+                          return;
+                        }
+                        try {
+                          await deleteProduct(token, p.id);
+                          cart.removeProductFromAll(p.id);
+                          await queryClient.invalidateQueries({ queryKey: productKeys.all });
+                          toast.success("کالا حذف شد");
+                        } catch (err) {
+                          toast.error(formatAuthError(err));
+                        }
+                      })();
                     }}
                     className="flex items-center gap-0.5 text-xs text-destructive"
                   >

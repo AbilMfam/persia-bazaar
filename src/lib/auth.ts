@@ -1,80 +1,136 @@
-import { createId } from "./ids";
 import { emit, readJson, writeJson } from "./storage";
 import type { User } from "./types";
+import { getApiBaseUrl } from "./env";
+import { apiFetch, ApiError } from "./api-client";
 
-const USERS_KEY = "digi_users_v1";
-const SESSION_KEY = "digi_session_v1";
+const TOKEN_KEY = "digi_auth_token_v1";
+const USER_KEY = "digi_auth_user_v1";
 export const AUTH_CHANGE = "auth:change";
 
-function readUsers(): User[] {
-  return readJson<User[]>(USERS_KEY, []);
+type ApiUser = {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+};
+
+function mapUser(u: ApiUser): User {
+  return {
+    id: String(u.id),
+    name: u.name,
+    email: u.email,
+    createdAt: Date.parse(u.created_at),
+  };
 }
 
-function writeUsers(users: User[]): void {
-  writeJson(USERS_KEY, users);
-}
-
-function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "").replace(/^98/, "0");
+export function formatAuthError(err: unknown): string {
+  if (err instanceof TypeError) {
+    const m = err.message.toLowerCase();
+    if (m.includes("fetch") || m.includes("failed") || m.includes("network")) {
+      return (
+        "به API وصل نشد. پروکسی `/api` فقط با روشن بودن Laravel کار می‌کند. یا `npm run dev:full` (هر دو با هم)، " +
+        "یا یک ترمینال `npm run backend:dev` و دیگری `npm run dev` (فرانت معمولا `http://localhost:5173/`). " +
+        "اگر `VITE_API_BASE_URL` در `.env` ریشه ست شده آدرس/پورت را چک کن؛ از گوشی به‌جای 127.0.0.1 از IP آن رایانه روی شبکه استفاده کن."
+      );
+    }
+  }
+  if (err instanceof ApiError && err.errors) {
+    const first = Object.values(err.errors)[0]?.[0];
+    if (first) return first;
+    if (err.message.toLowerCase().includes("invalid credentials")) {
+      return "ایمیل یا رمز عبور اشتباه است";
+    }
+  }
+  if (err instanceof Error) return err.message;
+  return "خطای نامشخص";
 }
 
 export const auth = {
-  init() {
-    return;
+  getToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return readJson<string | null>(TOKEN_KEY, null);
   },
 
   getSessionUserId(): string | null {
-    return readJson<{ userId: string } | null>(SESSION_KEY, null)?.userId ?? null;
+    return readJson<User | null>(USER_KEY, null)?.id ?? null;
   },
 
   getCurrentUser(): User | null {
-    const id = this.getSessionUserId();
-    if (!id) return null;
-    return readUsers().find((u) => u.id === id) ?? null;
+    if (typeof window === "undefined") return null;
+    return readJson<User | null>(USER_KEY, null);
   },
 
-  register(input: { name: string; phone: string; password: string }): User {
-    const phone = normalizePhone(input.phone);
-    const users = readUsers();
-    if (users.some((u) => u.phone === phone)) {
-      throw new Error("این شماره قبلاً ثبت شده است");
+  async bootstrap(): Promise<void> {
+    const token = this.getToken();
+    if (!token) return;
+    try {
+      const base = getApiBaseUrl();
+      const data = await apiFetch<{ user: ApiUser }>(`${base}/auth/me`, { token });
+      writeJson(USER_KEY, mapUser(data.user));
+      emit(AUTH_CHANGE);
+    } catch {
+      writeJson(TOKEN_KEY, null);
+      writeJson(USER_KEY, null);
+      emit(AUTH_CHANGE);
     }
-    const user: User = {
-      id: createId("u"),
-      name: input.name.trim(),
-      phone,
-      password: input.password,
-      createdAt: Date.now(),
-    };
-    users.push(user);
-    writeUsers(users);
-    writeJson(SESSION_KEY, { userId: user.id });
+  },
+
+  async login(email: string, password: string): Promise<User> {
+    const base = getApiBaseUrl();
+    const data = await apiFetch<{ user: ApiUser; token: string }>(`${base}/auth/login`, {
+      method: "POST",
+      json: {
+        email: email.trim().toLowerCase(),
+        password,
+        device_name:
+          typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : "digimall-web",
+      },
+    });
+    writeJson(TOKEN_KEY, data.token);
+    const user = mapUser(data.user);
+    writeJson(USER_KEY, user);
     emit(AUTH_CHANGE);
     return user;
   },
 
-  login(phone: string, password: string): User {
-    const normalized = normalizePhone(phone);
-    const user = readUsers().find(
-      (u) => u.phone === normalized && u.password === password,
-    );
-    if (!user) throw new Error("شماره یا رمز عبور اشتباه است");
-    writeJson(SESSION_KEY, { userId: user.id });
+  async register(input: {
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+  }): Promise<User> {
+    const base = getApiBaseUrl();
+    const data = await apiFetch<{ user: ApiUser; token: string }>(`${base}/auth/register`, {
+      method: "POST",
+      json: {
+        name: input.name.trim(),
+        email: input.email.trim().toLowerCase(),
+        password: input.password,
+        password_confirmation: input.password_confirmation,
+        device_name:
+          typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : "digimall-web",
+      },
+    });
+    writeJson(TOKEN_KEY, data.token);
+    const user = mapUser(data.user);
+    writeJson(USER_KEY, user);
     emit(AUTH_CHANGE);
     return user;
   },
 
-  loginOrRegister(phone: string, password: string, name?: string): User {
-    const normalized = normalizePhone(phone);
-    const existing = readUsers().find((u) => u.phone === normalized);
-    if (existing) return this.login(phone, password);
-    if (!name?.trim()) throw new Error("برای ثبت‌نام نام خود را وارد کنید");
-    return this.register({ name, phone, password });
-  },
-
-  logout(): void {
+  async logout(): Promise<void> {
+    const token = this.getToken();
+    if (token) {
+      try {
+        const base = getApiBaseUrl();
+        await apiFetch(`${base}/auth/logout`, { method: "POST", token });
+      } catch {
+        /* شبکه قطع است؛ پاک‌سازی محلی را انجام می‌دهیم */
+      }
+    }
     if (typeof window === "undefined") return;
-    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     emit(AUTH_CHANGE);
   },
 };

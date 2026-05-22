@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { productStore } from "./products";
 import { emit, readJson, writeJson } from "./storage";
 import type { CartItem, Product } from "./types";
 
@@ -8,67 +6,59 @@ export const CART_CHANGE = "cart:change";
 
 type StoredCartItem = { productId: string; qty: number };
 
-function hydrate(items: StoredCartItem[]): CartItem[] {
-  return items
-    .map((item) => {
-      const product = productStore.getById(item.productId);
+function readStored(): StoredCartItem[] {
+  if (typeof window === "undefined") return [];
+  return readJson<StoredCartItem[]>(KEY, []);
+}
+
+/** برای هوکٔ سبد: با لیست محصولات فعلی مرورگر/سرور ادغام می‌کند. */
+export function hydrateCartFromCatalog(products: Product[]): CartItem[] {
+  const map = new Map(products.map((p) => [p.id, p]));
+  return readStored()
+    .map((s) => {
+      const product = map.get(s.productId);
       if (!product) return null;
-      return { product, qty: item.qty };
+      return { product, qty: s.qty } satisfies CartItem;
     })
     .filter((x): x is CartItem => x !== null);
 }
 
-function read(): CartItem[] {
-  if (typeof window === "undefined") return [];
-  const stored = readJson<StoredCartItem[]>(KEY, []);
-  return hydrate(stored);
-}
-
-function persist(items: CartItem[]) {
-  const stored: StoredCartItem[] = items.map((i) => ({
-    productId: i.product.id,
-    qty: i.qty,
-  }));
-  writeJson(KEY, stored);
-  emit(CART_CHANGE);
-}
-
-export function useCart() {
-  const [items, setItems] = useState<CartItem[]>([]);
-  useEffect(() => {
-    setItems(read());
-    const refresh = () => setItems(read());
-    window.addEventListener(CART_CHANGE, refresh);
-    window.addEventListener("products:change", refresh);
-    return () => {
-      window.removeEventListener(CART_CHANGE, refresh);
-      window.removeEventListener("products:change", refresh);
-    };
-  }, []);
-  return items;
-}
-
 export const cart = {
   add(product: Product) {
-    const items = read();
-    const found = items.find((i) => i.product.id === product.id);
+    const stored = readStored();
+    const found = stored.find((s) => s.productId === product.id);
     if (found) found.qty += 1;
-    else items.push({ product, qty: 1 });
-    persist(items);
+    else stored.push({ productId: product.id, qty: 1 });
+    writeJson(KEY, stored);
+    emit(CART_CHANGE);
   },
+
   remove(id: string) {
-    persist(read().filter((i) => i.product.id !== id));
+    writeJson(
+      KEY,
+      readStored().filter((s) => s.productId !== id),
+    );
+    emit(CART_CHANGE);
   },
+
   setQty(id: string, qty: number) {
-    const items = read()
-      .map((i) => (i.product.id === id ? { ...i, qty } : i))
-      .filter((i) => i.qty > 0);
-    persist(items);
+    const next = readStored()
+      .map((s) => (s.productId === id ? { ...s, qty } : s))
+      .filter((s) => s.qty > 0);
+    writeJson(KEY, next);
+    emit(CART_CHANGE);
   },
+
   clear() {
-    persist([]);
+    writeJson(KEY, []);
+    emit(CART_CHANGE);
   },
+
   removeProductFromAll(productId: string) {
-    persist(read().filter((i) => i.product.id !== productId));
+    writeJson(
+      KEY,
+      readStored().filter((s) => s.productId !== productId),
+    );
+    emit(CART_CHANGE);
   },
 };

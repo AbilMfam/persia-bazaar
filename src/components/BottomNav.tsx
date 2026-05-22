@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Home, ShoppingCart, PlusSquare, LayoutDashboard, User } from "lucide-react";
-import { useCart } from "@/lib/cart";
+import { useCart } from "@/hooks/useCart";
 
 const items = [
   { to: "/", label: "خانه", icon: Home },

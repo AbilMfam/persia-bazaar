@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { TopBar } from "@/components/TopBar";
-import { cart, useCart } from "@/lib/cart";
+import { cart } from "@/lib/cart";
+import { useCart } from "@/hooks/useCart";
 import { formatPrice } from "@/lib/data";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 

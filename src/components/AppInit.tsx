@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { initProducts } from "@/lib/products";
 import { PwaInstallPrompt } from "./PwaInstallPrompt";
 
 async function clearStalePwaCaches() {
@@ -18,8 +17,6 @@ async function unregisterServiceWorkers() {
 
 export function AppInit() {
   useEffect(() => {
-    initProducts();
-
     if (import.meta.env.DEV) {
       void unregisterServiceWorkers().then(clearStalePwaCaches);
       return;

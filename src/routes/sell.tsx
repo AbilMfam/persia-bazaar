@@ -1,9 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { TopBar } from "@/components/TopBar";
 import { LazyImage } from "@/components/LazyImage";
 import { categories } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
-import { calcDiscount, productStore } from "@/lib/products";
+import { useProduct } from "@/hooks/useProducts";
+import { auth, formatAuthError } from "@/lib/auth";
+import { createProduct, updateProduct } from "@/lib/product-api";
+import { productKeys } from "@/lib/product-query-keys";
 import { Upload, Check, ImageIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,25 +27,33 @@ export const Route = createFileRoute("/sell")({
 function SellPage() {
   const { edit } = Route.useSearch();
   const navigate = useNavigate();
-  const { user, isLoggedIn } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, ready: authReady, isLoggedIn } = useAuth();
+  const {
+    product: editing,
+    ready: editReady,
+    found,
+    isLoading: editLoading,
+  } = useProduct(edit);
+
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [image, setImage] = useState("");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
-  const [price, setPrice] = useState("");
   const [stock, setStock] = useState("1");
   const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
 
-  const editing = edit ? productStore.getById(edit) : undefined;
-  const isEdit = !!editing;
+  const isEdit = Boolean(edit && editing);
 
   useEffect(() => {
     if (!editing) return;
     setImage(editing.image);
     setTitle(editing.title);
-    setCategory(editing.category);
+    setCategory(editing.category !== "general" ? editing.category : "");
     setPrice(String(editing.price));
     setStock(String(editing.stock ?? 1));
     setDescription(editing.description);
@@ -57,6 +69,14 @@ function SellPage() {
     reader.onload = () => setImage(String(reader.result));
     reader.readAsDataURL(file);
   };
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
@@ -75,7 +95,15 @@ function SellPage() {
     );
   }
 
-  if (edit && !editing) {
+  if (edit && editLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (edit && editReady && !found) {
     return (
       <div className="p-8 text-center">
         <p className="text-muted-foreground">کالا یافت نشد</p>
@@ -108,7 +136,7 @@ function SellPage() {
             {isEdit ? "کالا با موفقیت به‌روز شد" : "کالا با موفقیت ثبت شد"}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            کالا در فروشگاه نمایش داده می‌شود و پس از رفرش هم باقی می‌ماند.
+            کالا در فهرست سرور ذخیره شد و در فروشگاه نمایش داده می‌شود.
           </p>
           <div className="mt-6 flex gap-2">
             <button
@@ -138,39 +166,59 @@ function SellPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!image) {
-              toast.error("تصویر کالا را انتخاب کنید");
-              return;
-            }
-            const priceNum = Number(price);
-            const stockNum = Number(stock) || 1;
-            if (!user) return;
+            void (async () => {
+              if (!image) {
+                toast.error("تصویر کالا را انتخاب کنید");
+                return;
+              }
+              const desc = description.trim();
+              if (desc.length < 10) {
+                toast.error("توضیحات باید حداقل ۱۰ کاراکتر باشد");
+                return;
+              }
+              const priceNum = Number(price);
+              if (!Number.isFinite(priceNum) || priceNum < 0) {
+                toast.error("قیمت نامعتبر است");
+                return;
+              }
+              const token = auth.getToken();
+              if (!token || !user) {
+                toast.error("ابتدا وارد شوید");
+                return;
+              }
 
-            if (isEdit && editing) {
-              productStore.update(editing.id, {
-                title: title.trim(),
-                category,
-                price: priceNum,
-                stock: stockNum,
-                description: description.trim(),
-                image,
-                discount: calcDiscount(priceNum, editing.oldPrice),
-              });
-              toast.success("کالا به‌روز شد");
-            } else {
-              productStore.create({
-                title: title.trim(),
-                category,
-                price: priceNum,
-                stock: stockNum,
-                description: description.trim(),
-                image,
-                seller: user.name,
-                sellerId: user.id,
-              });
-              toast.success("کالا ثبت شد");
-            }
-            setSubmitted(true);
+              setSubmitting(true);
+              try {
+                const catTrim = category.trim();
+                const payloadBase = {
+                  title: title.trim(),
+                  description: desc,
+                  price: Math.round(priceNum),
+                  image_url: image || null,
+                  ...(catTrim ? { category: catTrim } : {}),
+                };
+
+                if (isEdit && editing) {
+                  await updateProduct(token, editing.id, {
+                    title: payloadBase.title,
+                    description: payloadBase.description,
+                    category: catTrim === "" ? null : catTrim,
+                    price: payloadBase.price,
+                    image_url: payloadBase.image_url,
+                  });
+                  toast.success("کالا به‌روز شد");
+                } else {
+                  await createProduct(token, payloadBase);
+                  toast.success("کالا ثبت شد");
+                }
+                await queryClient.invalidateQueries({ queryKey: productKeys.all });
+                setSubmitted(true);
+              } catch (err) {
+                toast.error(formatAuthError(err));
+              } finally {
+                setSubmitting(false);
+              }
+            })();
           }}
           className="space-y-4 p-4"
         >
@@ -189,11 +237,7 @@ function SellPage() {
               className="flex h-32 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
             >
               {image ? (
-                <LazyImage
-                  src={image}
-                  alt="پیش‌نمایش"
-                  wrapperClassName="h-full w-full"
-                />
+                <LazyImage src={image} alt="پیش‌نمایش" wrapperClassName="h-full w-full" />
               ) : (
                 <div className="flex flex-col items-center gap-1.5">
                   <Upload className="h-6 w-6" />
@@ -225,12 +269,11 @@ function SellPage() {
 
           <Field label="دسته‌بندی">
             <select
-              required
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="input-field"
             >
-              <option value="">انتخاب دسته‌بندی</option>
+              <option value="">عمومی (بدون دسته)</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -251,7 +294,7 @@ function SellPage() {
                 className="input-field"
               />
             </Field>
-            <Field label="موجودی">
+            <Field label="موجودی (نمایشی)">
               <input
                 required
                 type="number"
@@ -268,18 +311,20 @@ function SellPage() {
             <textarea
               required
               rows={4}
+              minLength={10}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="ویژگی‌ها و مشخصات کالا..."
+              placeholder="حداقل ۱۰ کاراکتر — ویژگی‌ها و مشخصات کالا..."
               className="input-field resize-none"
             />
           </Field>
 
           <button
             type="submit"
-            className="w-full rounded-2xl bg-gradient-primary py-3.5 text-sm font-bold text-primary-foreground shadow-elevated transition active:scale-[0.98]"
+            disabled={submitting}
+            className="w-full rounded-2xl bg-gradient-primary py-3.5 text-sm font-bold text-primary-foreground shadow-elevated transition active:scale-[0.98] disabled:opacity-60"
           >
-            {isEdit ? "ذخیره تغییرات" : "ثبت کالا"}
+            {submitting ? "در حال ذخیره..." : isEdit ? "ذخیره تغییرات" : "ثبت کالا"}
           </button>
         </form>
       )}

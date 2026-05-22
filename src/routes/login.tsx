@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { TopBar } from "@/components/TopBar";
 import { useAuth } from "@/hooks/useAuth";
-import { auth } from "@/lib/auth";
+import { auth, formatAuthError } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { Smartphone, Lock, ArrowLeft, User } from "lucide-react";
+import { Mail, Lock, ArrowLeft, User } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -14,15 +14,25 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, ready, isLoggedIn, logout } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn) setName(user?.name ?? "");
   }, [isLoggedIn, user?.name]);
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (isLoggedIn && user) {
     return (
@@ -37,10 +47,10 @@ function LoginPage() {
           </div>
           <h1 className="text-xl font-extrabold">{user.name}</h1>
           <p className="mt-2 text-sm text-muted-foreground" dir="ltr">
-            {user.phone}
+            {user.email}
           </p>
           <p className="mt-4 text-xs text-muted-foreground">
-            ورود محلی — داده‌ها فقط در مرورگر شما ذخیره می‌شوند
+            حساب شما از طریق سرور Laravel به‌روز می‌شود.
           </p>
           <div className="mt-8 flex flex-col gap-2">
             <Link
@@ -52,8 +62,7 @@ function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                logout();
-                toast.success("خارج شدید");
+                void logout().then(() => toast.success("خارج شدید"));
               }}
               className="rounded-2xl border border-border py-3 text-sm font-bold text-foreground"
             >
@@ -76,7 +85,7 @@ function LoginPage() {
         <h1 className="text-center text-xl font-extrabold">به دیجی‌مال خوش آمدید</h1>
         <p className="mt-2 text-center text-sm text-muted-foreground">
           {mode === "login"
-            ? "برای ورود شماره موبایل و رمز عبور را وارد کنید"
+            ? "برای ورود ایمیل و رمز عبور را وارد کنید"
             : "برای ثبت‌نام اطلاعات خود را تکمیل کنید"}
         </p>
 
@@ -104,18 +113,36 @@ function LoginPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            try {
-              if (mode === "register") {
-                auth.register({ name, phone, password });
-                toast.success("ثبت‌نام موفق");
-              } else {
-                auth.login(phone, password);
-                toast.success("خوش آمدید");
+            void (async () => {
+              setSubmitting(true);
+              try {
+                if (mode === "register") {
+                  if (password.length < 8) {
+                    toast.error("رمز عبور باید حداقل ۸ کاراکتر باشد");
+                    return;
+                  }
+                  if (password !== passwordConfirmation) {
+                    toast.error("تکرار رمز عبور با رمز یکسان نیست");
+                    return;
+                  }
+                  await auth.register({
+                    name,
+                    email,
+                    password,
+                    password_confirmation: passwordConfirmation,
+                  });
+                  toast.success("ثبت‌نام موفق");
+                } else {
+                  await auth.login(email, password);
+                  toast.success("خوش آمدید");
+                }
+                navigate({ to: "/" });
+              } catch (err) {
+                toast.error(formatAuthError(err));
+              } finally {
+                setSubmitting(false);
               }
-              navigate({ to: "/" });
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : "خطا در ورود");
-            }
+            })();
           }}
           className="mt-6 space-y-4"
         >
@@ -134,14 +161,15 @@ function LoginPage() {
           )}
 
           <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-card focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-            <Smartphone className="h-5 w-5 text-muted-foreground" />
+            <Mail className="h-5 w-5 text-muted-foreground" />
             <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              type="email"
+              autoComplete="email"
+              placeholder="ایمیل"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="flex-1 bg-transparent text-base font-medium outline-none placeholder:text-muted-foreground"
+              dir="ltr"
               required
             />
           </div>
@@ -150,26 +178,48 @@ function LoginPage() {
             <Lock className="h-5 w-5 text-muted-foreground" />
             <input
               type="password"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
               placeholder="رمز عبور"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              minLength={4}
+              minLength={mode === "login" ? 1 : 8}
               className="flex-1 bg-transparent text-base font-medium outline-none"
               required
             />
           </div>
 
+          {mode === "register" && (
+            <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-card focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder="تکرار رمز عبور"
+                value={passwordConfirmation}
+                onChange={(e) => setPasswordConfirmation(e.target.value)}
+                minLength={8}
+                className="flex-1 bg-transparent text-base font-medium outline-none"
+                required
+              />
+            </div>
+          )}
+
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-primary py-3.5 text-sm font-bold text-primary-foreground shadow-elevated transition active:scale-[0.98]"
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-primary py-3.5 text-sm font-bold text-primary-foreground shadow-elevated transition active:scale-[0.98] disabled:opacity-60"
           >
-            {mode === "login" ? "ورود" : "ثبت‌نام"}
+            {submitting ? "در حال ارسال..." : mode === "login" ? "ورود" : "ثبت‌نام"}
             <ArrowLeft className="h-4 w-4" />
           </button>
         </form>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          با ورود، <Link to="/" className="text-primary">قوانین</Link> دیجی‌مال را می‌پذیرید
+          با ورود،{" "}
+          <Link to="/" className="text-primary">
+            قوانین
+          </Link>{" "}
+          دیجی‌مال را می‌پذیرید
         </p>
       </div>
     </div>

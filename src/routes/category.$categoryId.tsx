@@ -19,9 +19,8 @@ export const Route = createFileRoute("/category/$categoryId")({
 
 function CategoryPage() {
   const { categoryId } = Route.useParams();
-  const { products, ready } = useProducts();
   const category = categories.find((c) => c.id === categoryId);
-  const items = products.filter((p) => p.category === categoryId);
+  const { products: items, ready } = useProducts({ category: categoryId });
 
   if (!category) {
     return (

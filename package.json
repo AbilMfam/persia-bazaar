@@ -4,11 +4,16 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
+    "backend:dev": "php ./backend/artisan serve --host=127.0.0.1 --port=8000",
+    "backend:dev:lan": "php ./backend/artisan serve --host=0.0.0.0 --port=8000",
+    "dev:full": "concurrently -n laravel,vite -c cyan,magenta \"npm run backend:dev\" \"npm run dev\"",
+    "dev:host": "node ./node_modules/vite/bin/vite.js dev --host",
+    "dev:full:lan": "concurrently -n laravel,vite -c cyan,magenta \"npm run backend:dev:lan\" \"npm run dev:host\"",
+    "dev": "node ./node_modules/vite/bin/vite.js dev",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "build:dev": "node ./node_modules/vite/bin/vite.js build --mode development",
     "build:mobile": "node scripts/build-mobile.mjs",
-    "preview": "vite preview",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
     "lint": "eslint .",
     "format": "prettier --write .",
     "cap:sync": "npm run build:mobile && npx cap sync",
@@ -89,6 +94,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
+    "concurrently": "^9.2.1",
     "vite": "^7.3.1"
   }
 }
