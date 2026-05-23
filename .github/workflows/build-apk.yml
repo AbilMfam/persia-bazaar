@@ -1,13 +1,47 @@
-name: Build APK
+# Android APK CI
+#
+# VITE_API_BASE_URL (recommended for push to main): set in
+# Repository → Settings → Secrets and variables → Actions → Variables
+# Example: https://diigiimal.ir/api
+#
+# workflow_dispatch defaults the API URL via input when that variable is empty.
+#
+# ─── Future: Play Store release signing ───────────────────────────────────────
+# 1. Add GitHub Secrets: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#    ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD (or one combined secret blob).
+# 2. Decode keystore in the Gradle step; add signingConfigs.release in
+#    android/app/build.gradle (often via env vars keyed from secrets).
+# 3. Add another job or switch apk_variant release + ./gradlew bundleRelease.
+
+name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      vite_api_base_url:
+        description: >
+          API base URL — HTTPS and must end with /api. Used only when Actions
+          variable VITE_API_BASE_URL is unset (e.g. ad-hoc manual runs).
+        required: false
+        default: "https://diigiimal.ir/api"
+      apk_variant:
+        description: >
+          Debug for CI artifacts; release unsigned APK requires Android signing
+          config (bundleRelease/signingConfigs) before production rollout.
+        required: false
+        type: choice
+        options: [debug, release]
+        default: debug
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     steps:
       - uses: actions/checkout@v6
 
@@ -15,11 +49,47 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: "22"
+          cache: npm
+
+      - name: Resolve VITE_API_BASE_URL
+        env:
+          REPO_VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          DISPATCH_URL: ${{ github.event.inputs.vite_api_base_url }}
+        run: |
+          set -euo pipefail
+          FINAL=""
+
+          if [ -n "${REPO_VITE_API_BASE_URL// }" ]; then
+            FINAL="${REPO_VITE_API_BASE_URL// }"
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            FINAL="${DISPATCH_URL// }"
+          fi
+
+          if [ -z "$FINAL" ]; then
+            echo "::error::VITE_API_BASE_URL is missing. Configure it for CI builds:"
+            echo " • Push to main → set repository variable VITE_API_BASE_URL (Actions → Variables), e.g. https://diigiimal.ir/api"
+            echo " • Manual run → optionally set workflow input (used when repository variable is empty)"
+            echo " • Local mobile build → .env.production or shell before npm run build:mobile"
+            exit 1
+          fi
+
+          NORM="${FINAL%/}"
+          if [[ ! "${NORM,,}" =~ ^https:// ]]; then
+            echo "::error::VITE_API_BASE_URL must use HTTPS (Capacitor has cleartext disabled). Got: ${FINAL}"
+            exit 1
+          fi
+          if [[ ! "${NORM,,}" =~ /api$ ]]; then
+            echo "::error::VITE_API_BASE_URL must include Laravel's /api prefix and end with /api (got: ${FINAL})"
+            exit 1
+          fi
+
+          echo "Resolved VITE_API_BASE_URL=${NORM}"
+          echo "VITE_API_BASE_URL=${NORM}" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build web
+      - name: Build web (Capacitor / Vite mobile)
         run: npm run build:mobile
 
       - name: Setup Java
@@ -31,18 +101,47 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
+      - name: Resolve APK variant / Gradle task
+        env:
+          DISPATCH_VARIANT: ${{ github.event.inputs.apk_variant }}
+        id: apk
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]; then
+            VARIANT="debug"
+          else
+            VARIANT="${DISPATCH_VARIANT:-debug}"
+            if [ -z "${VARIANT}" ]; then
+              VARIANT="debug"
+            fi
+          fi
+          case "$VARIANT" in
+            debug)
+              echo "task=assembleDebug" >> "$GITHUB_OUTPUT"
+              ;;
+            release)
+              echo "task=assembleRelease" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::apk_variant must be debug or release; got '$VARIANT'"
+              exit 1
+              ;;
+          esac
+          echo "variant=$VARIANT" >> "$GITHUB_OUTPUT"
+
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build APK
+      - name: Build APK (Gradle ${{ steps.apk.outputs.task }})
         run: |
+          set -euo pipefail
           cd android
           sed -i 's/\r//' gradlew
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew "${{ steps.apk.outputs.task }}"
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: digimall-${{ steps.apk.outputs.variant }}-${{ github.run_number }}
+          path: android/app/build/outputs/apk/${{ steps.apk.outputs.variant }}/*.apk
