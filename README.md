@@ -57,6 +57,14 @@ VITE_API_BASE_URL=http://127.0.0.1:8000/api
 
 و در آن حالت پروکسی dev استفاده نمی‌شود. برای تست از روی اندروید، به‌جای `127.0.0.1` از **IP همان رایانه روی شبکه** استفاده کن و `CORS_ALLOWED_ORIGINS` در `.env` بکند را با آدرس فرانت/کپاسیتور هماهنگ کن.
 
+### بیلد production و APK (دامنهٔ مثلاً `https://diigiimall.ir`)
+
+- هر درخواست API در اپ فقط با **`getApiBaseUrl()`** که از **`VITE_API_BASE_URL`** پُر می‌شود ساخته می‌شود؛ در بیلدهای بدون **`import.meta.env.DEV`** اگر این متغیر خالی باشد، زمانٔ اولین درخواست خطای صریح می‌گیری — دیگر پیش‌فرض `127.0.0.1:8000` روی کلاینت production نیست.
+- نمونهٔ آمادهٔ پروداکشن: فایل **`.env.production.example`** را به **`.env.production`** در ریشهٔ مخزن کپی کن (همان خط `https://diigiimall.ir/api`).
+- دستور اندروید: **`npm run android`** — پیش از `vite build` اسکریپت **`scripts/build-mobile.mjs`** بررسی می‌کند که `VITE_API_BASE_URL` ست باشد (رد کردن کنترل: `MOBILE_BUILD_SKIP_VITE_ENV_CHECK=1`).
+- WebView اندروید طبق **`capacitor.config.ts`** فقط **HTTPS** به بیرون می‌فرستد (`cleartext: false`).
+- برای سرور Laravel، **`backend/.env`**: **`APP_URL`**, **`CORS_ALLOWED_ORIGINS`**, **`SANCTUM_STATEFUL_DOMAINS`** را با دامنهٔ واقعی و منشاهای Capacitor همسو کن؛ نمونه به‌روز در **`backend/.env.example`** است.
+
 ### اگر به API وصل نشد
 
 - پروکسی مسیر **`/api` فقط وقتی کار می‌کند که Laravel همزمان بالا باشد**؛ یا یک ترمینال `npm run dev:full`، یا دو ترمینال: **`npm run backend:dev`** و **`npm run dev`** و بعد فرانت را روی **`http://localhost:5173/`** باز کن.

@@ -27,10 +27,16 @@ export function formatAuthError(err: unknown): string {
   if (err instanceof TypeError) {
     const m = err.message.toLowerCase();
     if (m.includes("fetch") || m.includes("failed") || m.includes("network")) {
+      if (import.meta.env.DEV) {
+        return (
+          "به API وصل نشد. پروکسی `/api` فقط با روشن بودن Laravel کار می‌کند — `npm run dev:full`، " +
+          "یا دو ترمینال برای بکند و فرانت؛ فرانت را روی آدرس همان 포رتی باز کن که Vite چاپ می‌کند. " +
+          "اگر مستقیم به API می‌زنی، `VITE_API_BASE_URL` را در `.env` ریشه چک کن (روی شبکهٔ محلی از IP رایانه، نه localhost)."
+        );
+      }
       return (
-        "به API وصل نشد. پروکسی `/api` فقط با روشن بودن Laravel کار می‌کند. یا `npm run dev:full` (هر دو با هم)، " +
-        "یا یک ترمینال `npm run backend:dev` و دیگری `npm run dev` (فرانت معمولا `http://localhost:5173/`). " +
-        "اگر `VITE_API_BASE_URL` در `.env` ریشه ست شده آدرس/پورت را چک کن؛ از گوشی به‌جای 127.0.0.1 از IP آن رایانه روی شبکه استفاده کن."
+        "ارتباط با سرور برقرار نشد. اتصال اینترنت یا در دسترس بودن سرویس API را بررسی کن؛ " +
+        "برای اپ نصبی، آدرس API در زمان build با `VITE_API_BASE_URL` تعیین می‌شود."
       );
     }
   }
