@@ -6,13 +6,45 @@
 
 کد API در پوشهٔ **`backend/`** کنار همین اپ قرار دارد (`persia-bazaar/backend`). این همان مارکت‌پلیس لاراول است که قبلاً جدا بود و اینجا کپی شده است.
 
+**مسیر PHP (ویندوز):** اسکریپت‌های npm مثل `backend:dev` و `backend:migrate` از **`C:/xampp/php/php.exe`** (XAMPP، حداقل **۸.۲**) استفاده می‌کنند. در **`php.ini` همان نصب** معمولاً اکستنشن‌هایی مثل `openssl`، `mbstring`، `pdo_sqlite`، `curl` را فعال کن. برای Composer در یک ترمینال می‌توانی با `. .\scripts\use-persia-php.ps1` همان **`C:\xampp\php`** را اول PATH قرار دهی؛ اگر مسیر دیگری داری **`PERSIA_PHP_ROOT`** را به پوشهٔ حاوی **`php.exe`** بگذار.
+
+**SQLite بدون Laravel:** در صورت نبود `vendor` یا مشکل Composer، بازسازیٔ فایل SQLite با **`npm run backend:bootstrap-sqlite`** (اسکریپت Python) ممکن است.
+
 از داخل **`backend`** (یک‌بار برای نصب و دیتابیس):
 
 ```powershell
+. ..\scripts\use-persia-php.ps1    # پر کردن PATH با همان مسیر؛ اگر قبلاً کامل است حذفش کن
 composer install
 php artisan key:generate
 php artisan migrate
 ```
+
+برای **ساخت کامل جداول + پر کردن داده‌های سید** (زمان `created_at` / `updated_at` همان ساعت سرور/سیستم است):
+
+```powershell
+# از ریشهٔ مخزن (بعد از composer در backend)
+npm run backend:migrate
+```
+
+یا بازسازیٔ کامل از صفر با سید (همهٔ ردیف‌ها پاک و دوباره ساخته می‌شوند):
+
+```powershell
+npm run backend:fresh
+```
+
+معادل دستی با PowerShell از ریشهٔ مخزن:
+
+```powershell
+.\scripts\init-database.ps1
+```
+
+اگر PHP یا Composer در PATH ندارید، می‌توانی با **اسکریپت Python** همین طرح جداول و سید SQLite را یک‌باره بسازی (`pip install bcrypt` لازم است):
+
+```powershell
+npm run backend:bootstrap-sqlite
+```
+
+این فرمان فایل `backend/database/database.sqlite` را بازسازی می‌کند؛ اگر `APP_KEY` در `backend/.env` خالی باشد هم پر می‌کند.
 
 برای هر بار توسعه، **سرور Laravel** باید روشن باشد — از **ریشهٔ مخزن**:
 
