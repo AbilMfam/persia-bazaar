@@ -2,7 +2,7 @@
 #
 # VITE_API_BASE_URL (recommended for push to main): set in
 # Repository → Settings → Secrets and variables → Actions → Variables
-# Example: https://diigiimal.ir/api
+# Example: https://diigiimall.ir/api (optional if .env.production is committed).
 #
 # workflow_dispatch defaults the API URL via input when that variable is empty.
 #
@@ -22,10 +22,11 @@ on:
     inputs:
       vite_api_base_url:
         description: >
-          API base URL — HTTPS and must end with /api. Used only when Actions
-          variable VITE_API_BASE_URL is unset (e.g. ad-hoc manual runs).
+          API base URL — HTTPS and must end with /api. On manual runs, used when the
+          repository Actions variable `VITE_API_BASE_URL` is empty; otherwise the repo
+          variable wins. Leaving this empty falls back to the production default below.
         required: false
-        default: "https://diigiimal.ir/api"
+        default: "https://diigiimall.ir/api"
       apk_variant:
         description: >
           Debug for CI artifacts; release unsigned APK requires Android signing
@@ -57,20 +58,20 @@ jobs:
           DISPATCH_URL: ${{ github.event.inputs.vite_api_base_url }}
         run: |
           set -euo pipefail
+          DEFAULT_API="https://diigiimall.ir/api"
           FINAL=""
 
           if [ -n "${REPO_VITE_API_BASE_URL// }" ]; then
             FINAL="${REPO_VITE_API_BASE_URL// }"
           elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             FINAL="${DISPATCH_URL// }"
+          else
+            # Push / schedule: مخزن باید `.env.production` داشته باشد؛ بدون آن از دامنهٔ canonical استفاده کن.
+            FINAL="$DEFAULT_API"
           fi
 
           if [ -z "$FINAL" ]; then
-            echo "::error::VITE_API_BASE_URL is missing. Configure it for CI builds:"
-            echo " • Push to main → set repository variable VITE_API_BASE_URL (Actions → Variables), e.g. https://diigiimal.ir/api"
-            echo " • Manual run → optionally set workflow input (used when repository variable is empty)"
-            echo " • Local mobile build → .env.production or shell before npm run build:mobile"
-            exit 1
+            FINAL="$DEFAULT_API"
           fi
 
           NORM="${FINAL%/}"
@@ -91,6 +92,14 @@ jobs:
 
       - name: Build web (Capacitor / Vite mobile)
         run: npm run build:mobile
+
+      - name: Verify API URL embedded in Capacitor web bundle
+        run: |
+          set -euo pipefail
+          if ! grep -R "diigiimall\.ir" dist/client --include='*.js' >/dev/null 2>&1; then
+            echo "::error::Expected https://diigiimall.ir in built JS assets (check VITE_API_BASE_URL)."
+            exit 1
+          fi
 
       - name: Setup Java
         uses: actions/setup-java@v5

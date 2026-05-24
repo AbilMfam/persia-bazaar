@@ -1,11 +1,11 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Laravel API base URL — در dev اگر خالی باشد از `/api` + پروکسی Vite استفاده می‌شود. */
+  /** Laravel API base؛ در اپ نصبی باید مثل «https://diigiimall.ir/api» در زمان build تزریق شود. */
   readonly VITE_API_BASE_URL?: string;
-  /** مبدأ Laravel بدون `/api` — برای آدرس مطلق تصاویر `/storage/*` وقتی API از پروکسی dev می‌آید؛ پیش‌فرض ۱۲۷...:۸۰۰۰ */
+  /** مبدأ Laravel بدون `/api` — برای resolve تصاویر وقتی `getApiBaseUrl()` مسیر نسبی `/api` می‌دهد */
   readonly VITE_LARAVEL_ORIGIN?: string;
-  /** همان مقصدی که vite پروکسی می‌اندازد (برای SSR در dev)، مثل `http://127.0.0.1:8000` */
+  /** مبدأ پروکسی dev در vite.config؛ باید صریح در `.env.local` ست شود تا `/api` پروکسی شود */
   readonly VITE_DEV_API_PROXY_TARGET?: string;
 }
 

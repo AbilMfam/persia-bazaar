@@ -75,15 +75,18 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8080,http://localhos
 Capacitor Android requests come from `https://localhost` (or `capacitor://localhost`)
 by default — both are pre-configured.
 
-## Deploy (shared hosting)
+## Deploy (shared hosting / DirectAdmin)
 
-1. Upload the whole folder.
-2. Point your domain document root to **`public/`** (or copy `public/.htaccess` to root).
-3. Run `composer install --no-dev --optimize-autoloader`.
-4. Create the MySQL DB and update `.env`.
-5. Run `php artisan key:generate && php artisan migrate --force --seed`.
-6. Make `storage/` and `bootstrap/cache/` writable (`chmod -R 775`).
-7. Cache for prod: `php artisan config:cache && php artisan route:cache`.
+Use **[`DEPLOYMENT_DIRECTADMIN.md`](DEPLOYMENT_DIRECTADMIN.md)** for a **step‑by‑step checklist**, **HTTPS / proxy tuning**, **CORS (Capacitor)**, and **Sanctum Bearer** verification.
+
+Synopsis:
+
+1. Upload **`backend/`**; document root → **`public/`**.
+2. `composer install --no-dev --optimize-autoloader`
+3. `cp .env.production.example .env` → set `APP_KEY`, `APP_URL` (HTTPS), `DB_*`, `CORS_*`, optionally `APP_FORCE_HTTPS` + `TRUST_ALL_PROXIES`.
+4. `php artisan key:generate` (once); `php artisan migrate --force` (optional `--seed`).
+5. `chmod -R 775 storage bootstrap/cache`
+6. `php artisan config:cache && php artisan route:cache` (after `.env` is stable; see doc for clearing).
 
 ## React (Capacitor) usage
 

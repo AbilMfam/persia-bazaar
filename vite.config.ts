@@ -11,23 +11,24 @@ const isMobileBuild = process.env.MOBILE_BUILD === "1";
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 // MOBILE_BUILD=1 enables SPA shell + index.html for Capacitor (offline-first, no SSR at runtime).
-/** Default Laravel URL for `/api` dev proxy (`php artisan serve`). */
-const devApiProxyTarget = process.env.VITE_DEV_API_PROXY_TARGET ?? "http://127.0.0.1:8000";
+const devProxyTarget = process.env.VITE_DEV_API_PROXY_TARGET?.trim();
+const devProxy =
+  devProxyTarget && devProxyTarget.length > 0
+    ? {
+        "/api": {
+          target: devProxyTarget,
+          changeOrigin: true,
+        },
+      }
+    : undefined;
 
 export default defineConfig({
   vite: {
     server: {
-      // Windows (Phone Link): Connect.exe listens on 127.0.0.1:8080 and serves a fake
-      // "Connect Internal WebServer" response → blank page while Vite listens on 0.0.0.0:8080.
-      // Use Vite's default port instead of 8080 to avoid localhost hijacking that port pair.
+      // Windows Phone Link can bind unusual ports — keep dev on 5173.
       port: 5173,
       strictPort: true,
-      proxy: {
-        "/api": {
-          target: devApiProxyTarget,
-          changeOrigin: true,
-        },
-      },
+      ...(devProxy ? { proxy: devProxy } : {}),
     },
   },
   cloudflare: isMobileBuild ? false : undefined,

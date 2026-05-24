@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\ApiFallbackController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', fn () => response()->json(['status' => 'success', 'data' => ['ok' => true]]));
+Route::get('/health', HealthController::class);
 
 // Auth
 Route::prefix('auth')->group(function () {
@@ -32,8 +34,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/products/{product}', [ProductController::class, 'destroy']);
 });
 
-// Catch-all 404 for /api/* (JSON envelope handled in bootstrap/app.php).
-Route::fallback(fn () => response()->json([
-    'status'  => 'error',
-    'message' => 'Endpoint not found.',
-], 404));
+// Catch-all 404 for /api/* (invokable so `php artisan route:cache` works on shared hosting).
+Route::fallback(ApiFallbackController::class);

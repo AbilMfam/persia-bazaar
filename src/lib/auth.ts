@@ -31,7 +31,7 @@ export function formatAuthError(err: unknown): string {
         return (
           "به API وصل نشد. پروکسی `/api` فقط با روشن بودن Laravel کار می‌کند — `npm run dev:full`، " +
           "یا دو ترمینال برای بکند و فرانت؛ فرانت را روی آدرس همان 포رتی باز کن که Vite چاپ می‌کند. " +
-          "اگر مستقیم به API می‌زنی، `VITE_API_BASE_URL` را در `.env` ریشه چک کن (روی شبکهٔ محلی از IP رایانه، نه localhost)."
+          "در dev در صورت خطا، مقدار `VITE_API_BASE_URL` یا پروکسی (`VITE_DEV_API_PROXY_TARGET`) را در `.env` / `.env.local` ریشه چک کن."
         );
       }
       return (
