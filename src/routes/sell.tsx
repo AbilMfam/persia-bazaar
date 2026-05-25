@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProduct } from "@/hooks/useProducts";
 import { auth, formatAuthError } from "@/lib/auth";
 import { createProduct, encodeProductImagesForApi, updateProduct } from "@/lib/product-api";
-import { productKeys } from "@/lib/product-query-keys";
+import { refetchAllProductQueries, upsertProductInListCaches } from "@/lib/product-cache-sync";
 import { Upload, Check, ImageIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
@@ -252,8 +252,9 @@ function SellPage() {
                   ...(catTrim ? { category: catTrim } : {}),
                 };
 
+                let savedProduct: Awaited<ReturnType<typeof createProduct>>;
                 if (isEdit && editing) {
-                  await updateProduct(token, editing.id, {
+                  savedProduct = await updateProduct(token, editing.id, {
                     title: payloadBase.title,
                     description: payloadBase.description,
                     category: catTrim === "" ? null : catTrim,
@@ -262,13 +263,11 @@ function SellPage() {
                   });
                   toast.success("کالا به‌روز شد");
                 } else {
-                  await createProduct(token, payloadBase);
+                  savedProduct = await createProduct(token, payloadBase);
                   toast.success("کالا ثبت شد");
                 }
-                await queryClient.invalidateQueries({
-                  queryKey: productKeys.all,
-                  refetchType: "all",
-                });
+                upsertProductInListCaches(queryClient, savedProduct);
+                await refetchAllProductQueries(queryClient);
                 setSubmitted(true);
               } catch (err) {
                 toast.error(formatAuthError(err));

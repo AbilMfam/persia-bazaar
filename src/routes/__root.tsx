@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 import { AppInit } from "@/components/AppInit";
 import { BottomNav } from "@/components/BottomNav";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { productKeys } from "@/lib/product-query-keys";
+import { refetchAllProductQueries } from "@/lib/product-cache-sync";
 
 function NotFoundComponent() {
   return (
@@ -130,10 +130,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   const onPullRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: productKeys.all,
-      refetchType: "all",
-    });
+    await refetchAllProductQueries(queryClient);
   }, [queryClient]);
 
   return (

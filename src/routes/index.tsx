@@ -5,7 +5,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { LazyImage } from "@/components/LazyImage";
 import { categories } from "@/lib/data";
-import { productKeys } from "@/lib/product-query-keys";
+import { refetchAllProductQueries } from "@/lib/product-cache-sync";
 import { useProducts } from "@/hooks/useProducts";
 import { Flame, Truck, ShieldCheck, BadgePercent, RefreshCw } from "lucide-react";
 import { useState } from "react";
@@ -30,10 +30,7 @@ function Index() {
     void (async () => {
       setRefreshBusy(true);
       try {
-        await queryClient.invalidateQueries({
-          queryKey: productKeys.all,
-          refetchType: "all",
-        });
+        await refetchAllProductQueries(queryClient);
       } finally {
         setRefreshBusy(false);
       }

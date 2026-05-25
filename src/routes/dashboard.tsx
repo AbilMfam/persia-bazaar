@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMyProducts } from "@/hooks/useProducts";
 import { auth, formatAuthError } from "@/lib/auth";
 import { deleteProduct } from "@/lib/product-api";
-import { productKeys } from "@/lib/product-query-keys";
+import { refetchAllProductQueries, removeProductFromListCaches } from "@/lib/product-cache-sync";
 import { cart } from "@/lib/cart";
 import { TrendingUp, Package, Wallet, Eye, Plus, ArrowUpRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -139,10 +139,8 @@ function DashboardPage() {
                         try {
                           await deleteProduct(token, p.id);
                           cart.removeProductFromAll(p.id);
-                          await queryClient.invalidateQueries({
-                            queryKey: productKeys.all,
-                            refetchType: "all",
-                          });
+                          removeProductFromListCaches(queryClient, p.id);
+                          await refetchAllProductQueries(queryClient);
                           toast.success("کالا حذف شد");
                         } catch (err) {
                           toast.error(formatAuthError(err));

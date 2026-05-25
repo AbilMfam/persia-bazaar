@@ -105,6 +105,8 @@ export async function fetchProducts(params?: {
   sp.set("per_page", String(params?.per_page ?? 100));
   if (params?.q) sp.set("q", params.q);
   if (params?.category) sp.set("category", params.category);
+  /** شکستن کش دیسک بعضی کلاینت‌های موبایل برای همانی که «پاک کردن دادهٔ اپ» درست می‌کند */
+  sp.set("_", String(Date.now()));
   const rows = await apiFetch<ApiProductDto[]>(`${base}/products?${sp}`);
   return rows.map(mapApiProductToProduct);
 }

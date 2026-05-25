@@ -16,8 +16,18 @@ type FetchOpts = {
 };
 
 export async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T> {
+  const method = opts.method ?? "GET";
+  const isGet = method.toUpperCase() === "GET";
+
   const headers: Record<string, string> = {
     Accept: "application/json",
+    /* بعضی WebViewها حتی با cache:no-store به پاسخت GET وفادار می‌مانند */
+    ...(isGet
+      ? {
+          "Cache-Control": "no-cache, no-store, max-age=0",
+          Pragma: "no-cache",
+        }
+      : {}),
   };
   if (opts.token) {
     headers.Authorization = `Bearer ${opts.token}`;
@@ -27,9 +37,6 @@ export async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(opts.json);
   }
-
-  const method = opts.method ?? "GET";
-  const isGet = method.toUpperCase() === "GET";
   const res = await fetch(path, {
     method,
     headers,
