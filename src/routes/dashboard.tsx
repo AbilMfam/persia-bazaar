@@ -67,7 +67,12 @@ function DashboardPage() {
       </div>
 
       <div className="-mt-6 grid grid-cols-2 gap-3 px-4">
-        <Stat icon={Package} label="کالاهای من" value={myProducts.length.toLocaleString("fa-IR")} tone="primary" />
+        <Stat
+          icon={Package}
+          label="کالاهای من"
+          value={myProducts.length.toLocaleString("fa-IR")}
+          tone="primary"
+        />
         <Stat icon={Eye} label="بازدید" value="—" />
         <Stat
           icon={TrendingUp}
@@ -94,7 +99,9 @@ function DashboardPage() {
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : myProducts.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">هنوز کالایی ثبت نکرده‌اید</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            هنوز کالایی ثبت نکرده‌اید
+          </p>
         ) : (
           <div className="space-y-2.5">
             {myProducts.map((p) => (
@@ -102,11 +109,7 @@ function DashboardPage() {
                 key={p.id}
                 className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card animate-slide-up"
               >
-                <LazyImage
-                  src={p.image}
-                  alt=""
-                  wrapperClassName="h-14 w-14 shrink-0 rounded-xl"
-                />
+                <LazyImage src={p.image} alt="" wrapperClassName="h-14 w-14 shrink-0 rounded-xl" />
                 <div className="min-w-0 flex-1">
                   <h4 className="line-clamp-1 text-sm font-medium">{p.title}</h4>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
@@ -117,7 +120,11 @@ function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Link to="/sell" search={{ edit: p.id }} className="text-xs font-bold text-primary">
+                  <Link
+                    to="/sell"
+                    search={{ edit: p.id }}
+                    className="text-xs font-bold text-primary"
+                  >
                     ویرایش
                   </Link>
                   <button
@@ -132,7 +139,10 @@ function DashboardPage() {
                         try {
                           await deleteProduct(token, p.id);
                           cart.removeProductFromAll(p.id);
-                          await queryClient.invalidateQueries({ queryKey: productKeys.all });
+                          await queryClient.invalidateQueries({
+                            queryKey: productKeys.all,
+                            refetchType: "all",
+                          });
                           toast.success("کالا حذف شد");
                         } catch (err) {
                           toast.error(formatAuthError(err));

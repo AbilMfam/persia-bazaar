@@ -6,11 +6,6 @@ export function categoryCoverPlaceholder(hue: number): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-const bannerPlaceholder = (hue: number) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" rx="48" fill="hsl(${hue},65%,38%)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" opacity="0.9" font-family="system-ui,sans-serif" font-size="28" font-weight="700">DigiMall</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-};
-
 export type CategoryItem = {
   id: string;
   name: string;
@@ -19,12 +14,15 @@ export type CategoryItem = {
   coverImage?: string;
 };
 
+const bannerBeauty = "/banners/category-beauty.png";
+const bannerMobile = "/banners/category-mobile.png";
+
 export const categories: CategoryItem[] = [
   {
     id: "mobile",
     name: "موبایل",
     emoji: "📱",
-    coverImage: categoryCoverPlaceholder(210),
+    coverImage: bannerMobile,
   },
   { id: "fashion", name: "مد و پوشاک", emoji: "👗" },
   { id: "home", name: "خانه", emoji: "🏠" },
@@ -32,7 +30,7 @@ export const categories: CategoryItem[] = [
     id: "beauty",
     name: "زیبایی",
     emoji: "💄",
-    coverImage: categoryCoverPlaceholder(328),
+    coverImage: bannerBeauty,
   },
   { id: "book", name: "کتاب", emoji: "📚" },
   { id: "sport", name: "ورزش", emoji: "⚽" },
@@ -56,7 +54,7 @@ export const banners: HomeBanner[] = [
     title: "دستهٔ زیبایی و مراقبت",
     subtitle: "محصولات منتخب پوست و مو؛ شروع از همین امروز",
     cta: "رفتن به زیبایی",
-    image: bannerPlaceholder(328),
+    image: bannerBeauty,
     categoryId: "beauty",
   },
   {
@@ -64,7 +62,7 @@ export const banners: HomeBanner[] = [
     title: "موبایل و کالای دیجیتال",
     subtitle: "گوشی، لوازم همراه و دیجیتال‌های پرکاربرد",
     cta: "مشاهده موبایل",
-    image: bannerPlaceholder(215),
+    image: bannerMobile,
     categoryId: "mobile",
   },
 ];

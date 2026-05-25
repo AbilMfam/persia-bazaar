@@ -5,7 +5,9 @@ async function clearStalePwaCaches() {
   if (!("caches" in window)) return;
   const keys = await caches.keys();
   await Promise.all(
-    keys.filter((key) => key.startsWith("digi-mall") && key !== "digi-mall-v4").map((key) => caches.delete(key)),
+    keys
+      .filter((key) => key.startsWith("digi-mall") && key !== "digi-mall-v5")
+      .map((key) => caches.delete(key)),
   );
 }
 

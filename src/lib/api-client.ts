@@ -28,7 +28,15 @@ export async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T
     body = JSON.stringify(opts.json);
   }
 
-  const res = await fetch(path, { method: opts.method ?? "GET", headers, body });
+  const method = opts.method ?? "GET";
+  const isGet = method.toUpperCase() === "GET";
+  const res = await fetch(path, {
+    method,
+    headers,
+    body,
+    /* جلوگیری از کش WebView برای دادهٔ پویا (لیست محصول بدون به‌روزرسانی تا پاک کردن اپ) */
+    ...(isGet ? { cache: "no-store" as RequestCache } : {}),
+  });
   const text = await res.text();
 
   let parsed: unknown;
@@ -50,11 +58,7 @@ export async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T
   };
 
   if (envelope.status === "error") {
-    throw new ApiError(
-      envelope.message ?? "خطا در ارتباط با سرور",
-      res.status,
-      envelope.errors,
-    );
+    throw new ApiError(envelope.message ?? "خطا در ارتباط با سرور", res.status, envelope.errors);
   }
 
   return envelope.data as T;

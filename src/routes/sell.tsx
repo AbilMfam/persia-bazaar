@@ -46,12 +46,7 @@ function SellPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, ready: authReady, isLoggedIn } = useAuth();
-  const {
-    product: editing,
-    ready: editReady,
-    found,
-    isLoading: editLoading,
-  } = useProduct(edit);
+  const { product: editing, ready: editReady, found, isLoading: editLoading } = useProduct(edit);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -270,7 +265,10 @@ function SellPage() {
                   await createProduct(token, payloadBase);
                   toast.success("کالا ثبت شد");
                 }
-                await queryClient.invalidateQueries({ queryKey: productKeys.all });
+                await queryClient.invalidateQueries({
+                  queryKey: productKeys.all,
+                  refetchType: "all",
+                });
                 setSubmitted(true);
               } catch (err) {
                 toast.error(formatAuthError(err));
@@ -282,7 +280,9 @@ function SellPage() {
           className="space-y-4 p-4"
         >
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold">تصاویر کالا (حداکثر {MAX_IMAGES})</span>
+            <span className="mb-1.5 block text-xs font-bold">
+              تصاویر کالا (حداکثر {MAX_IMAGES})
+            </span>
             <input
               ref={fileRef}
               type="file"

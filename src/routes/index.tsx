@@ -30,7 +30,10 @@ function Index() {
     void (async () => {
       setRefreshBusy(true);
       try {
-        await queryClient.invalidateQueries({ queryKey: productKeys.all });
+        await queryClient.invalidateQueries({
+          queryKey: productKeys.all,
+          refetchType: "all",
+        });
       } finally {
         setRefreshBusy(false);
       }
@@ -83,11 +86,7 @@ function Index() {
             >
               <span className="flex h-12 w-12 overflow-hidden rounded-full bg-accent">
                 {c.coverImage ? (
-                  <LazyImage
-                    src={c.coverImage}
-                    alt=""
-                    wrapperClassName="h-full w-full"
-                  />
+                  <LazyImage src={c.coverImage} alt="" wrapperClassName="h-full w-full" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center text-2xl">
                     {c.emoji ?? "📦"}

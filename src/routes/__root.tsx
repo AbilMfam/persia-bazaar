@@ -8,9 +8,12 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
+import { useCallback } from "react";
 import appCss from "../styles.css?url";
 import { AppInit } from "@/components/AppInit";
 import { BottomNav } from "@/components/BottomNav";
+import { PullToRefresh } from "@/components/PullToRefresh";
+import { productKeys } from "@/lib/product-query-keys";
 
 function NotFoundComponent() {
   return (
@@ -75,7 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "دیجی‌مال — بازار آنلاین ایران" },
-      { name: "description", content: "خرید آنلاین موبایل، مد، خانه و کالای دیجیتال با بهترین قیمت" },
+      {
+        name: "description",
+        content: "خرید آنلاین موبایل، مد، خانه و کالای دیجیتال با بهترین قیمت",
+      },
       { name: "author", content: "دیجی‌مال" },
       { property: "og:title", content: "دیجی‌مال — بازار آنلاین ایران" },
       { property: "og:description", content: "خرید آنلاین با ارسال سریع و قیمت ویژه" },
@@ -123,12 +129,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  const onPullRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: productKeys.all,
+      refetchType: "all",
+    });
+  }, [queryClient]);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background shadow-2xl">
+      <div className="mx-auto flex h-[100dvh] max-h-[100dvh] max-w-md flex-col overflow-hidden bg-background shadow-2xl">
         <AppInit />
-        <main className="flex-1">
-          <Outlet />
+        <main className="flex min-h-0 flex-1 flex-col">
+          <PullToRefresh onRefresh={onPullRefresh}>
+            <Outlet />
+          </PullToRefresh>
         </main>
         <BottomNav />
       </div>
