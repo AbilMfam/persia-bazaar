@@ -1,4 +1,4 @@
-const CACHE = "digi-mall-v3";
+const CACHE = "digi-mall-v4";
 const PRECACHE = ["/manifest.json", "/icon-192.svg", "/icon-512.svg"];
 
 self.addEventListener("install", (event) => {
@@ -24,8 +24,20 @@ function isAppShellRequest(request) {
   return /\.(js|css|mjs)$/i.test(url.pathname);
 }
 
+/** JSON و لیست محصولات نباید از Cache API سرو شوند — باعث مانده داده بعد از حذف/ثبت می‌شود. */
+function isApiRequest(request) {
+  const url = new URL(request.url);
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return true;
+  return false;
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  if (isApiRequest(event.request)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   if (isAppShellRequest(event.request)) {
     event.respondWith(
