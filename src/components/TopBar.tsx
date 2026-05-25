@@ -52,8 +52,16 @@ export function TopBar({
             <ArrowRight className="h-5 w-5" />
           </button>
         ) : (
-          <Link to="/" className="text-lg font-extrabold tracking-tight">
-            دیجی‌مال
+          <Link to="/" className="flex items-center gap-2">
+            <img
+              src="/icon-192.svg"
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 rounded-xl shadow-card ring-2 ring-white/25"
+              decoding="async"
+            />
+            <span className="text-lg font-extrabold tracking-tight">دیجی‌مال</span>
           </Link>
         )}
         {title ? (

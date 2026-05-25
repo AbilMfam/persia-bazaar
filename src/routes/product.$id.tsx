@@ -4,9 +4,11 @@ import { LazyImage } from "@/components/LazyImage";
 import { formatPrice, getCategoryName } from "@/lib/data";
 import { useProduct } from "@/hooks/useProducts";
 import { cart } from "@/lib/cart";
+import { cn } from "@/lib/utils";
 import { Heart, Share2, Star, ShoppingCart, ShieldCheck, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { useEffect, useMemo, useState } from "react";
 
 export const Route = createFileRoute("/product/$id")({
   component: ProductPage,
@@ -15,6 +17,17 @@ export const Route = createFileRoute("/product/$id")({
 function ProductPage() {
   const { id } = Route.useParams();
   const { product, ready, found } = useProduct(id);
+
+  const galleryUrls = useMemo(
+    () => (product?.images?.length ? product.images : product ? [product.image] : []),
+    [product],
+  );
+
+  const [activeImage, setActiveImage] = useState(0);
+
+  useEffect(() => {
+    setActiveImage(0);
+  }, [id, product?.id]);
 
   if (!ready) {
     return (
@@ -54,10 +67,29 @@ function ProductPage() {
 
       <div className="bg-card">
         <LazyImage
-          src={product.image}
+          src={galleryUrls[activeImage] ?? product.image}
           alt={product.title}
           wrapperClassName="aspect-square w-full"
         />
+        {galleryUrls.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto border-t border-border p-2 no-scrollbar">
+            {galleryUrls.map((src, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActiveImage(i)}
+                aria-label={`تصویر ${i + 1}`}
+                aria-current={activeImage === i ? "true" : undefined}
+                className={cn(
+                  "h-16 w-16 shrink-0 overflow-hidden rounded-xl ring-2 ring-transparent transition",
+                  activeImage === i ? "ring-primary" : "opacity-80",
+                )}
+              >
+                <LazyImage src={src} alt="" wrapperClassName="h-full w-full" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-4 p-4">

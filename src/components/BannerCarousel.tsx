@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import useEmblaCarousel from "embla-carousel-react";
 import { LazyImage } from "@/components/LazyImage";
 import { banners } from "@/lib/data";
@@ -76,12 +77,13 @@ export function BannerCarousel() {
                 <p className="text-xs/5 opacity-90">پیشنهاد ویژه</p>
                 <h2 className="mt-1 text-xl font-extrabold leading-7">{b.title}</h2>
                 <p className="mt-1 text-xs opacity-90">{b.subtitle}</p>
-                <button
-                  type="button"
-                  className="mt-3 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary shadow-card transition hover:scale-105 active:scale-95"
+                <Link
+                  to="/category/$categoryId"
+                  params={{ categoryId: b.categoryId }}
+                  className="mt-3 inline-flex rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary shadow-card transition hover:scale-105 active:scale-95"
                 >
                   {b.cta}
-                </button>
+                </Link>
               </div>
               <LazyImage
                 src={b.image}

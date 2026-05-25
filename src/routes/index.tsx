@@ -1,10 +1,14 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { TopBar } from "@/components/TopBar";
 import { ProductCard } from "@/components/ProductCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
+import { LazyImage } from "@/components/LazyImage";
 import { categories } from "@/lib/data";
+import { productKeys } from "@/lib/product-query-keys";
 import { useProducts } from "@/hooks/useProducts";
-import { Flame, Truck, ShieldCheck, BadgePercent } from "lucide-react";
+import { Flame, Truck, ShieldCheck, BadgePercent, RefreshCw } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -17,12 +21,39 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const queryClient = useQueryClient();
+  const [refreshBusy, setRefreshBusy] = useState(false);
   const { products } = useProducts();
   const discounted = products.filter((p) => p.discount);
 
+  const onRefreshProducts = () => {
+    void (async () => {
+      setRefreshBusy(true);
+      try {
+        await queryClient.invalidateQueries({ queryKey: productKeys.all });
+      } finally {
+        setRefreshBusy(false);
+      }
+    })();
+  };
+
   return (
     <div className="animate-fade-in">
-      <TopBar showSearch />
+      <TopBar
+        showSearch
+        right={
+          <button
+            type="button"
+            onClick={onRefreshProducts}
+            disabled={refreshBusy}
+            aria-label="به‌روزرسانی لیست کالاها"
+            title="به‌روزرسانی لیست از سرور"
+            className={`rounded-full p-1.5 transition hover:bg-white/15 disabled:opacity-60 ${refreshBusy ? "cursor-wait" : ""}`}
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshBusy ? "animate-spin" : ""}`} />
+          </button>
+        }
+      />
 
       <BannerCarousel />
 
@@ -50,8 +81,18 @@ function Index() {
               params={{ categoryId: c.id }}
               className="flex min-w-16 flex-col items-center gap-1.5 rounded-2xl bg-card p-3 shadow-card transition hover:-translate-y-0.5"
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent text-2xl">
-                {c.emoji}
+              <span className="flex h-12 w-12 overflow-hidden rounded-full bg-accent">
+                {c.coverImage ? (
+                  <LazyImage
+                    src={c.coverImage}
+                    alt=""
+                    wrapperClassName="h-full w-full"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-2xl">
+                    {c.emoji ?? "📦"}
+                  </span>
+                )}
               </span>
               <span className="text-[11px] font-medium">{c.name}</span>
             </Link>

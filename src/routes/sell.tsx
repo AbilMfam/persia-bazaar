@@ -6,13 +6,30 @@ import { categories } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { useProduct } from "@/hooks/useProducts";
 import { auth, formatAuthError } from "@/lib/auth";
-import { createProduct, updateProduct } from "@/lib/product-api";
+import { createProduct, encodeProductImagesForApi, updateProduct } from "@/lib/product-api";
 import { productKeys } from "@/lib/product-query-keys";
-import { Upload, Check, ImageIcon } from "lucide-react";
+import { Upload, Check, ImageIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { z } from "zod";
+
+const MAX_IMAGES = 8;
+const MAX_SINGLE_FILE_BYTES = 2_500_000;
+
+async function filesToDataUrls(files: Iterable<File>): Promise<string[]> {
+  const out: string[] = [];
+  for (const file of files) {
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("read failed"));
+      reader.readAsDataURL(file);
+    });
+    out.push(dataUrl);
+  }
+  return out;
+}
 
 const sellSearchSchema = z.object({
   edit: z.string().optional(),
@@ -40,7 +57,7 @@ function SellPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [image, setImage] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
   const [stock, setStock] = useState("1");
@@ -50,26 +67,61 @@ function SellPage() {
   const isEdit = Boolean(edit && editing);
 
   useEffect(() => {
+    if (!edit) {
+      setImages([]);
+      setTitle("");
+      setCategory("");
+      setPrice("");
+      setStock("1");
+      setDescription("");
+      return;
+    }
     if (!editing) return;
-    setImage(editing.image);
+    const ims =
+      editing.images && editing.images.length > 0
+        ? [...editing.images]
+        : editing.image
+          ? [editing.image]
+          : [];
+    setImages(ims);
     setTitle(editing.title);
     setCategory(editing.category !== "general" ? editing.category : "");
     setPrice(String(editing.price));
     setStock(String(editing.stock ?? 1));
     setDescription(editing.description);
-  }, [editing?.id]);
+  }, [edit, editing?.id]);
 
-  const onImageFile = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > 2_500_000) {
-      toast.error("حجم تصویر باید کمتر از ۲.۵ مگابایت باشد");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setImage(String(reader.result));
-    reader.readAsDataURL(file);
+  const appendImageFiles = (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    void (async () => {
+      const picked = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
+      if (!picked.length) {
+        toast.error("فقط فایل تصویر انتخاب کنید");
+        return;
+      }
+      const room = MAX_IMAGES - images.length;
+      if (room <= 0) {
+        toast.error(`حداکثر ${MAX_IMAGES} تصویر`);
+        return;
+      }
+      const take = picked.slice(0, room);
+      const validSized: File[] = [];
+      for (const file of take) {
+        if (file.size > MAX_SINGLE_FILE_BYTES) {
+          toast.error(`«${file.name}» از ۲٫۵ مگابایت بزرگتر است`);
+          continue;
+        }
+        validSized.push(file);
+      }
+      try {
+        const urls = await filesToDataUrls(validSized);
+        setImages((prev) => [...prev, ...urls].slice(0, MAX_IMAGES));
+      } catch {
+        toast.error("خواندن فایل تصویر نشد");
+      }
+      if (fileRef.current) fileRef.current.value = "";
+    })();
   };
-
   if (!authReady) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -142,7 +194,7 @@ function SellPage() {
             <button
               onClick={() => {
                 setSubmitted(false);
-                setImage("");
+                setImages([]);
                 setTitle("");
                 setCategory("");
                 setPrice("");
@@ -167,8 +219,15 @@ function SellPage() {
           onSubmit={(e) => {
             e.preventDefault();
             void (async () => {
-              if (!image) {
-                toast.error("تصویر کالا را انتخاب کنید");
+              if (images.length === 0) {
+                toast.error("حداقل یک تصویر برای کالا انتخاب کنید");
+                return;
+              }
+              let image_url: string | null;
+              try {
+                image_url = encodeProductImagesForApi(images);
+              } catch (encErr) {
+                toast.error(encErr instanceof Error ? encErr.message : "حجم تصاویر زیاد است");
                 return;
               }
               const desc = description.trim();
@@ -194,7 +253,7 @@ function SellPage() {
                   title: title.trim(),
                   description: desc,
                   price: Math.round(priceNum),
-                  image_url: image || null,
+                  image_url,
                   ...(catTrim ? { category: catTrim } : {}),
                 };
 
@@ -223,36 +282,59 @@ function SellPage() {
           className="space-y-4 p-4"
         >
           <label className="block">
-            <span className="mb-1.5 block text-xs font-bold">تصویر کالا</span>
+            <span className="mb-1.5 block text-xs font-bold">تصاویر کالا (حداکثر {MAX_IMAGES})</span>
             <input
               ref={fileRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
-              onChange={(e) => onImageFile(e.target.files?.[0])}
+              onChange={(e) => appendImageFiles(e.target.files)}
             />
+            {images.length > 0 && (
+              <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {images.map((src, idx) => (
+                  <div
+                    key={`${idx}-${src.slice(0, 24)}`}
+                    className="relative aspect-square overflow-hidden rounded-xl border border-border bg-card shadow-card"
+                  >
+                    <LazyImage src={src} alt="" wrapperClassName="h-full w-full" />
+                    <button
+                      type="button"
+                      aria-label={`حذف تصویر ${idx + 1}`}
+                      className="absolute left-1 top-1 rounded-full bg-background/90 p-1 shadow"
+                      onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-4 w-4 text-destructive" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex h-32 w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-card text-muted-foreground transition hover:border-primary hover:text-primary"
+              disabled={images.length >= MAX_IMAGES}
+              className="flex min-h-[7rem] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-card text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-50"
             >
-              {image ? (
-                <LazyImage src={image} alt="پیش‌نمایش" wrapperClassName="h-full w-full" />
-              ) : (
-                <div className="flex flex-col items-center gap-1.5">
-                  <Upload className="h-6 w-6" />
-                  <span className="text-xs">انتخاب یا بکشید و رها کنید</span>
-                </div>
-              )}
+              <div className="flex flex-col items-center gap-1.5 px-4">
+                <Upload className="h-6 w-6" />
+                <span className="text-center text-xs">
+                  {images.length >= MAX_IMAGES
+                    ? "سقف تعداد تصویر رسیده"
+                    : "افزودن تصویر (چند فایل قابل انتخاب است)"}
+                </span>
+              </div>
             </button>
-            {image && (
+            {images.length > 0 && (
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="mt-2 flex items-center gap-1 text-xs font-bold text-primary"
+                disabled={images.length >= MAX_IMAGES}
+                className="mt-2 flex items-center gap-1 text-xs font-bold text-primary disabled:opacity-50"
               >
                 <ImageIcon className="h-3.5 w-3.5" />
-                تغییر تصویر
+                افزودن تصویر دیگر
               </button>
             )}
           </label>

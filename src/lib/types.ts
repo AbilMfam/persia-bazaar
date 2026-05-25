@@ -4,6 +4,8 @@ export type Product = {
   price: number;
   oldPrice?: number;
   image: string;
+  /** اگر چند تصویر ذخیره شده باشد؛ برای نمای گالری در صفحه محصول */
+  images?: string[];
   rating: number;
   reviews: number;
   seller: string;

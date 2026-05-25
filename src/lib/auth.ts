@@ -43,8 +43,17 @@ export function formatAuthError(err: unknown): string {
   if (err instanceof ApiError && err.errors) {
     const first = Object.values(err.errors)[0]?.[0];
     if (first) return first;
-    if (err.message.toLowerCase().includes("invalid credentials")) {
-      return "ایمیل یا رمز عبور اشتباه است";
+  }
+  if (err instanceof ApiError) {
+    const lower = err.message.toLowerCase();
+    if (
+      err.status === 401 &&
+      (lower.includes("invalid credential") || lower.includes("unauthenticated"))
+    ) {
+      return "ایمیل در سیستم ثبت نشده یا رمز عبور نادرست است. ایمیل را دقیق (بدون خطای تایپی) بررسی کنید؛ اگر ایمیل درست است، رمز را اصلاح کنید.";
+    }
+    if (lower.includes("invalid credentials")) {
+      return "ایمیل یا رمز عبور اشتباه است.";
     }
   }
   if (err instanceof Error) return err.message;
